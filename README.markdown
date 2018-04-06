@@ -23,3 +23,8 @@ Things that are different from the original reference implementation:
 
 The original license of the reference source code has been kept, so you can use
 it under the CC0 1.0, OpenSSL, or Apache 2.0 license.
+
+## TODO
+
+  * Check against all applicable test vectors.
+  * Expand API.
