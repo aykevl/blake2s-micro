@@ -1,6 +1,6 @@
-# BLAKE2S for Cortex-M
+# BLAKE2s for embedded devices
 
-This is a size-optimized implementation of the [BLAKE2S hash
+This is a size-optimized implementation of the [BLAKE2s hash
 function](https://blake2.net/). With all optimizations/constraints enabled, it
 can archieve a code size of about 500 bytes.
 
