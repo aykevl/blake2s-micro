@@ -4,6 +4,11 @@ This is a size-optimized implementation of the [BLAKE2S hash
 function](https://blake2.net/). With all optimizations/constraints enabled, it
 can archieve a code size of about 500 bytes.
 
+**Warning: this implementation hasn't been verified.** It has only been tested
+on very limited inputs and it hasn't been verified by someone with a
+cryptographic background. Do not use it for anything serious, or accept the
+risk.
+
 Things that are different from the original reference implementation:
 
   * By default, inputs are assumed to be aligned on word boundaries and the
