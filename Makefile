@@ -9,6 +9,9 @@ all: build/test build/sizetest
 run: build/test
 	@$<
 
+test: build/test
+	@./test.py
+
 clean:
 	rm -rf build
 

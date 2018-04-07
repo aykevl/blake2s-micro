@@ -15,30 +15,59 @@
 //  https://blake2.net.
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "blake2s.h"
 
 __attribute__((aligned(4)))
-const unsigned char data1[BLAKE2S_BLOCKBYTES + 1] = "The quick brown fox jumps over the lazy dog";
+const uint8_t data1[BLAKE2S_BLOCKBYTES + 1] = "The quick brown fox jumps over the lazy dog";
 
 __attribute__((aligned(4)))
-const unsigned char data2[] = "The quick brown fox jumps over the lazy dog";
+const uint8_t data2[] = "The quick brown fox jumps over the lazy dog";
 
-int main(int argc, char **argv) {
+void test(const uint8_t *data, size_t len) {
     unsigned char result[32];
 
-    blake2s(result, (const uint32_t*)data1, sizeof(data1) - 1);
-    printf("Result: ");
-    for (size_t i=0; i<sizeof(result); i++) {
-        printf("%02x", result[i]);
+    int err = blake2s(result, (const uint32_t*)data, len);
+    if (err) {
+        printf("blake2s: error\n");
+        return;
     }
-    printf("\n");
 
-#if BLAKE2S_STREAM
-    blake2s(result, (const uint32_t*)data2, sizeof(data2) - 1);
-    printf("Result: ");
-    for (size_t i=0; i<sizeof(result); i++) {
+    for (size_t i = 0; i < sizeof(result); i++) {
         printf("%02x", result[i]);
     }
     printf("\n");
-#endif
+}
+
+int main(int argc, char **argv) {
+    if (argc > 1) {
+        for (size_t i = 1; i < argc; i++) {
+            size_t len = strlen(argv[i]) / 2;
+            if (!BLAKE2S_STREAM && len % BLAKE2S_BLOCKBYTES != 0) {
+                printf("skip: inputs must be block aligned\n");
+                continue;
+            }
+            if (!BLAKE2S_STREAM && len == 0) {
+                printf("skip: input is zero-length\n");
+                continue;
+            }
+
+            // Read hex-encoded data
+            uint8_t *buf = malloc(len);
+            for (size_t j = 0; j < len; j++) {
+                sscanf(&argv[i][j*2], "%2hhx", &buf[j]);
+            };
+            test(buf, len);
+            free(buf);
+        }
+    } else {
+        test(data1, sizeof(data1) - 1);
+        if (BLAKE2S_STREAM) {
+            test(data2, sizeof(data2) - 1);
+        }
+        if (BLAKE2S_STREAM) {
+            test(NULL, 0);
+        }
+    }
 }

@@ -178,6 +178,8 @@ static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
 #else
     // Implementation for ARM Cortex-M microcontrollers (including M0).
     // It turns out this isn't more compact than what GCC produces.
+    // Also, this implementation isn't correct for all inputs so don't use
+    // it.
     //
     // Register to variable mapping:
     //   r0: v
