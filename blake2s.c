@@ -43,7 +43,7 @@ static const uint8_t blake2s_sigma[10][8] = {
 };
 
 static inline uint32_t load32(const void *src) {
-#if NATIVE_LITTLE_ENDIAN && BLAKE2S_ALIGNED
+#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
     return *(uint32_t*)src;
 #elif NATIVE_LITTLE_ENDIAN
     uint32_t w;
@@ -59,7 +59,7 @@ static inline uint32_t load32(const void *src) {
 }
 
 static inline void store32(void *dst, uint32_t w) {
-#if NATIVE_LITTLE_ENDIAN && BLAKE2S_ALIGNED
+#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
     *(uint32_t*)dst = w;
 #elif NATIVE_LITTLE_ENDIAN
     memcpy(dst, &w, sizeof w);
@@ -73,7 +73,7 @@ static inline void store32(void *dst, uint32_t w) {
 }
 
 static inline void store16(void *dst, uint16_t w) {
-#if NATIVE_LITTLE_ENDIAN && BLAKE2S_ALIGNED
+#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
     *(uint16_t*)dst = w;
 #elif NATIVE_LITTLE_ENDIAN
     memcpy(dst, &w, sizeof w);
@@ -109,9 +109,9 @@ void blake2s_set_lastblock(blake2s_state *S) {
     S->f[0] = (uint32_t)-1;
 }
 
-static void blake2s_increment_counter(blake2s_state *S, const uint32_t inc) {
+static void blake2s_increment_counter(blake2s_state *S, const size_t inc) {
     S->t[0] += inc;
-    #if !BLAKE2S_MAX4GB
+    #if BLAKE2S_64BIT
     S->t[1] += ( S->t[0] < inc );
     #endif
 }
@@ -292,7 +292,7 @@ static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
 }
 
 static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYTES]) {
-    #if BLAKE2S_ALIGNED
+    #if !BLAKE2S_UNALIGNED
     const uint32_t *m = (const uint32_t*)in;
     #else
     uint32_t m[16];
@@ -352,7 +352,7 @@ int blake2s_final(blake2s_state *S, void *out) {
     if (BLAKE2S_ERRCHECK && BLAKE2S_STREAM && blake2s_is_lastblock(S)) return -1;
 
     #if BLAKE2S_STREAM
-    blake2s_increment_counter(S, (uint32_t)S->buflen);
+    blake2s_increment_counter(S, S->buflen);
     blake2s_set_lastblock(S);
     memset(S->buf + S->buflen, 0, BLAKE2S_BLOCKBYTES - S->buflen); // Padding
     blake2s_compress(S, S->buf);
