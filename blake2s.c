@@ -22,15 +22,6 @@
 
 #define NATIVE_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 
-// Some logging helper macros, for debugging.
-#ifdef DEBUG
-#define LOG(s) puts("  " s);
-#define LOGF(s, ...) printf("  " s "\n", ##__VA_ARGS__)
-#else
-#define LOG(s)
-#define LOGF(s, ...)
-#endif
-
 static const uint32_t blake2s_IV[8] = {
     0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
     0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL
@@ -113,14 +104,12 @@ int blake2s_is_lastblock(const blake2s_state *S) {
 }
 
 void blake2s_set_lastblock(blake2s_state *S) {
-    LOG("lastblock");
     if (S->last_node) blake2s_set_lastnode(S);
 
     S->f[0] = (uint32_t)-1;
 }
 
 static void blake2s_increment_counter(blake2s_state *S, const uint32_t inc) {
-    LOGF("increment: %d", inc);
     S->t[0] += inc;
     #if !BLAKE2S_MAX4GB
     S->t[1] += ( S->t[0] < inc );
@@ -301,8 +290,6 @@ static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
 }
 
 static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYTES]) {
-    LOG("compress");
-
     #if BLAKE2S_ALIGNED
     const uint32_t *m = (const uint32_t*)in;
     #else
