@@ -27,7 +27,7 @@ extern "C" {
 #define BLAKE2S_BLOCKBYTES (64)
 
 // Constants that may be changed to accomodate application needs.
-#define BLAKE2S_STREAM   (0)  // When disabled, inputs must be aligned to BLAKE2S_BLOCKBYTES
+#define BLAKE2S_STREAM   (0)  // When disabled, inputs must be aligned to BLAKE2S_BLOCKBYTES and not be zero length
 #define BLAKE2S_OUTLEN   (32) // Length of digest (32 is the secure/maximum/standard length)
 #define BLAKE2S_ERRCHECK (0)  // Enable error checking
 #define BLAKE2S_ALIGNED  (1)  // Inputs are always 32-bit aligned.
