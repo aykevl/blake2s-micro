@@ -43,45 +43,46 @@ static const uint8_t blake2s_sigma[10][8] = {
 };
 
 static inline uint32_t load32(const void *src) {
-#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
-    return *(uint32_t*)src;
-#elif NATIVE_LITTLE_ENDIAN
-    uint32_t w;
-    memcpy(&w, src, sizeof w);
-    return w;
-#else // fallback that always works
+    if (NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED) {
+        return *(uint32_t*)src;
+    }
+    if (NATIVE_LITTLE_ENDIAN) {
+        uint32_t w;
+        memcpy(&w, src, sizeof w);
+        return w;
+    }
+    // fallback that works for any system
     const uint8_t *p = (const uint8_t *)src;
     return ((uint32_t)(p[0]) <<  0) |
            ((uint32_t)(p[1]) <<  8) |
            ((uint32_t)(p[2]) << 16) |
            ((uint32_t)(p[3]) << 24) ;
-#endif
 }
 
 static inline void store32(void *dst, uint32_t w) {
-#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
-    *(uint32_t*)dst = w;
-#elif NATIVE_LITTLE_ENDIAN
-    memcpy(dst, &w, sizeof w);
-#else // fallback
-    uint8_t *p = (uint8_t *)dst;
-    p[0] = (uint8_t)(w >>  0);
-    p[1] = (uint8_t)(w >>  8);
-    p[2] = (uint8_t)(w >> 16);
-    p[3] = (uint8_t)(w >> 24);
-#endif
+    if (NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED) {
+        *(uint32_t*)dst = w;
+    } else if (NATIVE_LITTLE_ENDIAN) {
+        memcpy(dst, &w, sizeof w);
+    } else { // fallback
+        uint8_t *p = (uint8_t *)dst;
+        p[0] = (uint8_t)(w >>  0);
+        p[1] = (uint8_t)(w >>  8);
+        p[2] = (uint8_t)(w >> 16);
+        p[3] = (uint8_t)(w >> 24);
+    }
 }
 
 static inline void store16(void *dst, uint16_t w) {
-#if NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED
-    *(uint16_t*)dst = w;
-#elif NATIVE_LITTLE_ENDIAN
-    memcpy(dst, &w, sizeof w);
-#else // fallback
-    uint8_t *p = (uint8_t *)dst;
-    *p++ = (uint8_t)w; w >>= 8;
-    *p++ = (uint8_t)w;
-#endif
+    if (NATIVE_LITTLE_ENDIAN && !BLAKE2S_UNALIGNED) {
+        *(uint16_t*)dst = w;
+    } else if (NATIVE_LITTLE_ENDIAN) {
+        memcpy(dst, &w, sizeof w);
+    } else { // fallback
+        uint8_t *p = (uint8_t *)dst;
+        p[0] = (uint8_t)(w >> 0);
+        p[1] = (uint8_t)(w >> 8);
+    }
 }
 
 // Rotate right by the given amount.
@@ -95,15 +96,15 @@ static inline void secure_zero_memory(void *v, size_t n) {
     memset_v(v, 0, n);
 }
 
-void blake2s_set_lastnode(blake2s_state *S) {
+static void blake2s_set_lastnode(blake2s_state *S) {
     S->f[1] = (uint32_t)-1;
 }
 
-int blake2s_is_lastblock(const blake2s_state *S) {
+static int blake2s_is_lastblock(const blake2s_state *S) {
     return S->f[0] != 0;
 }
 
-void blake2s_set_lastblock(blake2s_state *S) {
+static void blake2s_set_lastblock(blake2s_state *S) {
     if (S->last_node) blake2s_set_lastnode(S);
 
     S->f[0] = (uint32_t)-1;
@@ -111,9 +112,9 @@ void blake2s_set_lastblock(blake2s_state *S) {
 
 static void blake2s_increment_counter(blake2s_state *S, const size_t inc) {
     S->t[0] += inc;
-    #if BLAKE2S_64BIT
-    S->t[1] += ( S->t[0] < inc );
-    #endif
+    if (BLAKE2S_64BIT) {
+        S->t[1] += ( S->t[0] < inc );
+    }
 }
 
 static void blake2s_set_IV(uint32_t *buf) {
@@ -122,10 +123,8 @@ static void blake2s_set_IV(uint32_t *buf) {
     }
 }
 
-int blake2s_update(blake2s_state *S, const void *in, size_t inlen);
-
 // blake2s initialization without key
-int blake2s_init(blake2s_state *S) {
+static int blake2s_init(blake2s_state *S) {
     memset(S, 0, sizeof(blake2s_state));
 
     blake2s_set_IV(S->h);
@@ -135,18 +134,6 @@ int blake2s_init(blake2s_state *S) {
 
     return 0;
 }
-
-#define G(a,b,c,d,m1,m2)       \
-    do {                       \
-        a = a + b + m1;        \
-        d = rotr32(d ^ a, 16); \
-        c = c + d;             \
-        b = rotr32(b ^ c, 12); \
-        a = a + b + m2;        \
-        d = rotr32(d ^ a, 8);  \
-        c = c + d;             \
-        b = rotr32(b ^ c, 7);  \
-    } while(0)
 
 static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
     for (size_t i = 0; i < 8; i++) {
@@ -170,7 +157,15 @@ static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
         const uint8_t sigma = blake2s_sigma[r][i];
         uint32_t m1 = m[sigma >> 4];
         uint32_t m2 = m[sigma & 0xf];
-        G(*a, *b, *c, *d, m1, m2);
+
+        *a = *a + *b + m1;
+        *d = rotr32(*d ^ *a, 16);
+        *c = *c + *d;
+        *b = rotr32(*b ^ *c, 12);
+        *a = *a + *b + m2;
+        *d = rotr32(*d ^ *a, 8);
+        *c = *c + *d;
+        *b = rotr32(*b ^ *c, 7);
     }
 }
 
@@ -200,9 +195,7 @@ static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYT
     }
 }
 
-#undef G
-
-int blake2s_update(blake2s_state *S, const void *pin, size_t inlen) {
+static int blake2s_update(blake2s_state *S, const void *pin, size_t inlen) {
     if (inlen == 0) return 0; // nothing to do
 
     if (BLAKE2S_ERRCHECK && !BLAKE2S_STREAM) {
@@ -230,15 +223,15 @@ int blake2s_update(blake2s_state *S, const void *pin, size_t inlen) {
     return 0;
 }
 
-int blake2s_final(blake2s_state *S, void *out) {
+static int blake2s_final(blake2s_state *S, void *out) {
     if (BLAKE2S_ERRCHECK && BLAKE2S_STREAM && blake2s_is_lastblock(S)) return -1;
 
-    #if BLAKE2S_STREAM
-    blake2s_increment_counter(S, S->buflen);
-    blake2s_set_lastblock(S);
-    memset(S->buf + S->buflen, 0, BLAKE2S_BLOCKBYTES - S->buflen); // Padding
-    blake2s_compress(S, S->buf);
-    #endif
+    if (BLAKE2S_STREAM) {
+        blake2s_increment_counter(S, S->buflen);
+        blake2s_set_lastblock(S);
+        memset(S->buf + S->buflen, 0, BLAKE2S_BLOCKBYTES - S->buflen); // Padding
+        blake2s_compress(S, S->buf);
+    }
 
     memcpy(out, S->h, BLAKE2S_OUTLEN);
     return 0;
@@ -255,30 +248,30 @@ int blake2s(void *out, const void *in, size_t inlen) {
     int err_init = blake2s_init(S);
     if (BLAKE2S_ERRCHECK && err_init) return -1;
 
-    // Streaming API, where this function can get data of arbitrary length
-    // as input.
-    #if BLAKE2S_STREAM
-    int err_update = blake2s_update(S, (const uint8_t *)in, inlen);
-    if (BLAKE2S_ERRCHECK && err_update) return -1;
+    if (BLAKE2S_STREAM) {
+        // Streaming API, where this function can get data of arbitrary length
+        // as input.
+        int err_update = blake2s_update(S, (const uint8_t *)in, inlen);
+        if (BLAKE2S_ERRCHECK && err_update) return -1;
 
-    // Block based API, where the input length MUST be a multiple of the
-    // block size.
-    #else
-    if (BLAKE2S_ERRCHECK && inlen % BLAKE2S_BLOCKBYTES != 0) return -1;
-    const uint8_t *inbuf = in;
-    const uint8_t *inend = inbuf + inlen - BLAKE2S_BLOCKBYTES;
-    for (;;) {
-        blake2s_increment_counter(S, BLAKE2S_BLOCKBYTES);
-        if (inbuf == inend) {
-            blake2s_set_lastblock(S);
+    } else {
+        // Block based API, where the input length MUST be a multiple of the
+        // block size.
+        if (BLAKE2S_ERRCHECK && inlen % BLAKE2S_BLOCKBYTES != 0) return -1;
+        const uint8_t *inbuf = in;
+        const uint8_t *inend = inbuf + inlen - BLAKE2S_BLOCKBYTES;
+        for (;;) {
+            blake2s_increment_counter(S, BLAKE2S_BLOCKBYTES);
+            if (inbuf == inend) {
+                blake2s_set_lastblock(S);
+            }
+            blake2s_compress(S, inbuf);
+            if (inbuf == inend) {
+                break;
+            }
+            inbuf += BLAKE2S_BLOCKBYTES;
         }
-        blake2s_compress(S, inbuf);
-        if (inbuf == inend) {
-            break;
-        }
-        inbuf += BLAKE2S_BLOCKBYTES;
     }
-    #endif
 
     int err_final = blake2s_final(S, out);
     if (BLAKE2S_ERRCHECK && err_final) return -1;

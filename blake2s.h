@@ -44,9 +44,7 @@ typedef struct {
 } blake2s_state;
 
 // Simple API.
-// Restrictions:
-//   * If BLAKE2S_UNALIGNED unset, 'in' MUST be aligned on words (4 bytes).
-//   * If BLAKE2S_STREAM is unset, 'inlen' MUST be a multiple of BLAKE2S_BLOCKBYTES.
+// See the options above for the applicable restrictions.
 int blake2s(void *out, const void *in, size_t inlen);
 int blake2s_blocks(void *out, const uint8_t in[BLAKE2S_BLOCKBYTES], size_t inblocks);
 
