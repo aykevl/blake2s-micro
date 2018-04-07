@@ -29,6 +29,17 @@ Things that are different from the original reference implementation:
 The original license of the reference source code has been kept, so you can use
 it under the CC0 1.0, OpenSSL, or Apache 2.0 license.
 
+## Performance
+
+The primary goal of this library is small size, but I've also done some
+performance testing.
+
+
+| System             | Optimization level | kB/s |
+| ------             | ------------------ | ---- |
+| Cortex-M4 at 64MHz | `-Os -flto`        | ~500 |
+
+
 ## TODO
 
   * Check against all applicable test vectors.
