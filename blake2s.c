@@ -201,7 +201,6 @@ static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYT
 }
 
 #undef G
-#undef ROUND
 
 int blake2s_update(blake2s_state *S, const void *pin, size_t inlen) {
     if (inlen == 0) return 0; // nothing to do
