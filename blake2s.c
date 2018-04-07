@@ -149,9 +149,6 @@ int blake2s_init(blake2s_state *S) {
     } while(0)
 
 static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
-#if 1 || !defined(__thumb__)
-    // Pure C implementation.
-
     for (size_t i = 0; i < 8; i++) {
         size_t bit4 = i / 4; // 0, 0, 0, 0, 1, 1, 1, 1
 
@@ -175,120 +172,6 @@ static void blake2s_round(size_t r, const uint32_t m[16], uint32_t v[16]) {
         uint32_t m2 = m[sigma & 0xf];
         G(*a, *b, *c, *d, m1, m2);
     }
-#else
-    // Implementation for ARM Cortex-M microcontrollers (including M0).
-    // It turns out this isn't more compact than what GCC produces.
-    // Also, this implementation isn't correct for all inputs so don't use
-    // it.
-    //
-    // Register to variable mapping:
-    //   r0: v
-    //   r1: m
-    //   r2: m1, sigma_row
-    //   r3: m2, i
-    //   r4: a
-    //   r5: b
-    //   r6: c, bit4
-    //   r7: d
-    register uint32_t *v_reg __asm__("r0") = v;
-    register const uint32_t *m_reg __asm__("r1") = m;
-    register const uint8_t *sigma_row_reg __asm__("r2") = blake2s_sigma[r];
-    __asm__ __volatile__(
-        ".syntax unified\n"
-
-        "movs r3, #0\n"   // for i in 0..8
-        "subround:"
-
-        // Calculate addresses for a, b, c, d
-        "movs r6, r3\n"
-        "lsrs r6, #2\n"
-
-        "movs r4, r3\n"   // a = i
-        "lsls r4, #30\n"  // a %= 4
-        "lsrs r4, #28\n"  // b align
-
-        "movs r5, r3\n"   // b = i
-        "adds r5, r6\n"   // b += bit4 * 1
-        "lsls r5, #30\n"  // b %= 4
-        "lsrs r5, #28\n"  // b align
-        "adds r5, #16\n"  // b += 16 (index += 4)
-
-        "movs r7, r6\n"   // d = bit4
-        "lsls r6, #1\n"   // c = bit4 * 2
-        "adds r7, r6\n"   // d += c
-
-        "adds r6, r3\n"   // c += i
-        "lsls r6, #30\n"  // c %= 4
-        "lsrs r6, #28\n"  // c align
-        "adds r6, #32\n"  // b += 32 (index += 8)
-
-        "adds r7, r3\n"   // d += i
-        "lsls r7, #30\n"  // d %= 4
-        "lsrs r7, #28\n"  // d align
-        "adds r7, #48\n"  // b += 48 (index += 12)
-
-        "push {r2, r3}\n" // save sigma_row and i
-
-        // Read m1 and m2 from the m array, using indexes from
-        // sigma_row.
-        "ldrb r2, [%[sigma_row], r3]\n" // read 'sigma' value (2 nibbles)
-        "movs r3, r2\n"
-
-        "lsls r3, #28\n"                // take lower 4 bits
-        "lsrs r3, #26\n"                // align
-        "ldr  r3, [%[m], r3]\n"         // read m2
-
-        "lsrs r2, #4\n"                 // take higher 4 bits
-        "lsls r2, #2\n"                 // align
-        "ldr  r2, [%[m], r2]\n"         // read m1
-
-        "push {r4, r5, r6, r7}\n"       // save a, b, c, d pointers
-        "ldr  r4, [%[v], r4]\n"         // dereference a, b, c, d
-        "ldr  r5, [%[v], r5]\n"
-        "ldr  r6, [%[v], r6]\n"
-        "ldr  r7, [%[v], r7]\n"
-
-        // G:
-
-        "adds r4, r2\n"  // a += m1
-        "adds r4, r5\n"  // a += b
-        "eors r7, r4\n"  // d ^= a
-        "movs r2, #16\n" // tmp = 16
-        "rors r7, r2\n"  // d = rotr32(d, tmp)
-        "adds r6, r7\n"  // c += d
-        "eors r5, r6\n"  // b ^= c
-        "movs r2, #12\n" // tmp = 12
-        "rors r5, r2\n"  // b = rotr32(b, tmp)
-
-        "adds r4, r3\n"  // a += m2
-        "adds r4, r5\n"  // a += b
-        "eors r7, r4\n"  // d ^= a
-        "movs r3, #8\n"  // tmp = 8
-        "rors r7, r3\n"  // d = rotr32(d, tmp)
-        "adds r6, r7\n"  // c += d
-        "eors r5, r6\n"  // b ^= c
-        "movs r3, #7\n"  // tmp = 7
-        "rors r5, r3\n"  // b = rotr32(b, tmp)
-
-        // Put values back in a, b, c, d
-        "pop  {r2, r3}\n"
-        "str  r4, [%[v], r2]\n"
-        "str  r5, [%[v], r3]\n"
-        "pop  {r2, r3}\n"
-        "str  r6, [%[v], r2]\n"
-        "str  r7, [%[v], r3]\n"
-
-        "pop  {r2, r3}\n" // v and i
-
-        "adds r3, #1\n"   // i += 1
-        "cmp  r3, #8\n"   // if (i == 0)
-        "bne  subround\n" //   break
-
-        : [v]"+r"(v_reg)
-        : [sigma_row]"r"(sigma_row_reg), [m]"r"(m_reg)
-        : "r3", "r4", "r5", "r6", "r7");
-
-#endif
 }
 
 static void blake2s_compress(blake2s_state *S, const uint8_t in[BLAKE2S_BLOCKBYTES]) {
