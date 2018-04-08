@@ -61,9 +61,10 @@ The primary goal of this library is small size, but I've also done some
 performance testing.
 
 
-| System             | Optimization level | kB/s |
-| ------             | ------------------ | ---- |
-| Cortex-M4 at 64MHz | GCC: `-Os -flto`   | ~500 |
+| System    | Optimization level | size (bytes) | kB/s         |
+| --------- | ------------------ | ------------ | ------------ |
+| Cortex-M0 | GCC: `-Os -flto`   | 498          | ?            |
+| Cortex-M4 | GCC: `-Os -flto`   | 550          | ~500 (64MHz) |
 
 
 ## Options
