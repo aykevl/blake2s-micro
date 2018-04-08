@@ -4,10 +4,9 @@ This is a size-optimized implementation of the [BLAKE2s hash
 function](https://blake2.net/). With all optimizations/constraints enabled, it
 can archieve a code size of about 500 bytes.
 
-**Warning: this implementation hasn't been verified.** It has only been tested
-on very limited inputs and it hasn't been verified by someone with a
-cryptographic background. Do not use it for anything serious, or accept the
-risk.
+**Note**: although this implementation is based on the reference implementation
+and it has been tested on all relevant test vectors, I cannot guarantee it will
+work in all cases as it has been modified quite a lot.
 
 Things that are different from the original reference implementation:
 
@@ -29,6 +28,33 @@ Things that are different from the original reference implementation:
 The original license of the reference source code has been kept, so you can use
 it under the CC0 1.0, OpenSSL, or Apache 2.0 license.
 
+
+## Usage
+
+Usage is simple:
+
+```c
+#include "blake2s.h"
+
+// this is the message to be hashed
+__attribute__((aligned(4)))
+const uint8_t data[BLAKE2S_BLOCKBYTES] = {0, 1, 2, 3}; // block length must be > 0 and a multiple of 64
+
+void main() {
+    uint8_t result[32];
+
+    // hash the data
+    blake2s(result, data, sizeof(data));
+
+    // do something with the result
+    for (size_t i = 0; i < sizeof(result); i++) {
+        printf("%02x", result[i]);
+    }
+    printf("\n");
+}
+```
+
+
 ## Performance
 
 The primary goal of this library is small size, but I've also done some
@@ -37,7 +63,21 @@ performance testing.
 
 | System             | Optimization level | kB/s |
 | ------             | ------------------ | ---- |
-| Cortex-M4 at 64MHz | `-Os -flto`        | ~500 |
+| Cortex-M4 at 64MHz | GCC: `-Os -flto`   | ~500 |
+
+
+## Options
+
+There are several options in blake2s.h with feature/codesize tradeoffs:
+
+| Option              | Effect |
+| ------------------- | ------ |
+| `BLAKE2S_OUTLEN`    | The digest length, usually 32. |
+| `BLAKE2S_STREAM`    | Allow non-block-sized inputs. When this is disabled, the
+length passed to `blake2s()` must be a non-zero multiple of 64. |
+| `BLAKE2S_ERRCHECK`  | Check and return an error on invalid parameters. It is a programming error (invalid parameter) if an error is returned - for example passing NULL as output. |
+| `BLAKE2S_UNALIGNED` | Allow unaligned inputs. Processors that require aligned reads (most 32-bit microcontrollers, few high-end CPUs) will choke when this option is disabled and unaligned input data is passed to `blake2s()`. |
+| `BLAKE2S_64BIT`     | Allow the total length of the hashed data to be larger than 4GB. This is only relevant on 64-bit processors. |
 
 
 ## TODO
